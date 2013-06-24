@@ -1,8 +1,21 @@
 #!/usr/bin/ruby
 
 require 'rexml/document'
+require 'cgi'
 include REXML
 $debug = false
+
+class ChainLink
+   attr_accessor :name, :command, :chain
+   def initialize(_name, _command, _chain)
+      @name    = _name    == nil ? "":_name
+      @command = _command == nil ? "":_command
+      @chain   = _chain   == nil ? "":_chain
+   end
+   def to_s
+      'ChainLink.to_s! '+ @name + " " + @command + " " + @chain
+   end
+end
 
 class Database
    def initialize()
@@ -35,12 +48,13 @@ class Database
       end
    end
 
-   def addLink(chain_name, link_name, command)
+   def addLink(chainlink)
+      puts chainlink
       must_be_unique=true
       config = @document.root()
-      chain = addElement(config, 'chain', chain_name)
-      link = addElement(chain, 'link', link_name, must_be_unique)
-      link.add_attribute('command', command)
+      chain = addElement(config, 'chain', chainlink.chain)
+      link = addElement(chain, 'link', chainlink.name, must_be_unique)
+      link.add_attribute('command', chainlink.command)
       puts @document
    end
 

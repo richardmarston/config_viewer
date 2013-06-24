@@ -2,22 +2,15 @@
 
 require 'socket'
 $test=false
-require_relative 'database.rb'
+
+if (RUBY_VERSION=="1.9.3")
+   require_relative 'database.rb'
+else
+   require 'database.rb'
+end
+
 
 $debug=true
-
-def add_labelled_input(para, name)
-   label = Element.new('LABEL')
-   label.add_attribute('for', name.downcase)
-   label.add_text(name)
-   entry = Element.new('INPUT')
-   entry.add_attribute('type', 'text')
-   entry.add_attribute('name', name.downcase)
-   entry.add_attribute('value', 'haha')
-   para.add(label) 
-   para.add(entry)
-   para.add(Element.new('BR'))
-end
 
 def showLink(link)
    h2 = Element.new('h2')
@@ -38,18 +31,15 @@ def showChain(chain_name)
    body = Element.new('body')
    title = body << Element.new('title')
    title.add_text('Chain: '+chain_name)
-   address = chain_name.split('/')
 
-   if(address.length == 2)
-      content = db.readDefinitions
-      xpath = '//config//chain[@name="'+address[1]+'"]'
-      XPath.each(content, xpath) { | chain | 
-         chain.each_element { | link |
-            body << showLink(link)
-         }
-         body << Element.new('br')
+   content = db.readDefinitions
+   xpath = '//config//chain[@name="'+chain_name+'"]'
+   XPath.each(content, xpath) { | chain | 
+      chain.each_element { | link |
+         body << showLink(link)
       }
-   end
+      body << Element.new('br')
+   }
    html << body
    html
 end
@@ -82,13 +72,34 @@ def createMenu()
    html
 end
 
-def newEntryForm(document)
+def add_labelled_input(para, name)
+   label = Element.new('LABEL')
+   label.add_attribute('for', name.downcase)
+   label.add_text(name)
+   entry = Element.new('INPUT')
+   entry.add_attribute('type', 'text')
+   entry.add_attribute('name', name.downcase)
+   para.add(label) 
+   para.add(entry)
+   para.add(Element.new('BR'))
+end
+
+def add_hidden_input(para, name, value)
+   entry = Element.new('INPUT')
+   entry.add_attribute('type', 'hidden')
+   entry.add_attribute('name', name)
+   entry.add_attribute('value', value)
+   para.add(entry)
+end
+
+def newLinkForm(chain)
    form = Element.new('FORM')
-   form.add_attribute('action', 'http://127.0.0.1:7125/submit.html')
+   form.add_attribute('action', 'http://127.0.0.1:7125/newLink.html')
    form.add_attribute('method', 'post')
    para = Element.new('P')
    add_labelled_input(para, 'Name')
    add_labelled_input(para, 'Command')
+   add_hidden_input(para, 'chain', chain)
 
    send_button = Element.new('INPUT')
    send_button.add_attribute('type', 'submit')
@@ -96,7 +107,7 @@ def newEntryForm(document)
 
    para << send_button
    form << para
-   document << form 
+   form 
 end
 
 def newFileTemplate(session)
@@ -122,31 +133,79 @@ end
 
 def doGet(session, request)
    getrequest = request.gsub(/GET\ \//, '').gsub(/\ HTTP.*/, '')
-   filename = getrequest.chomp
+   request_url = getrequest.chomp
    document = Document.new
-   if filename == ""
-      document << createMenu()
-      #newEntryForm(document)
-   else
-      #filename = "newFileTemplate.html"
-      document << showChain(filename)
-   end
    data=readData session
    if data != nil
       puts "data: "+data
+   end
+   if request_url == ""
+      document << createMenu()
+   else
+      #filename = "newFileTemplate.html"
+      request_components = request_url.split('/')
+      type = request_components[0]
+      name = request_components[1]
+      if (type == 'chain')    
+         document << showChain(name)
+         document.root << newLinkForm(name)
+      else
+         puts 'Did not recognise request type: '+type
+      end
    end
    puts "DOC: "+document.to_s
    document
 end
 
+def newLink(link)
+   puts ' name: '    + link['name'] + 
+        ' chain: '   + link['chain'] +
+        ' command: ' + link['command'] unless $debug == false
+   db = Database.new
+   _link = ChainLink.new(link['name'], link['command'], link['chain'])
+   db.addLink(_link)
+   db.saveDefinitions
+   myfile = <<EOF
+<!DOCTYPE HTML>
+<html lang="en-US">
+    <head>
+        <meta charset="UTF-8" />
+        <meta http-equiv="refresh" content="1;url=http://127.0.0.1:7125/chain/mychain" />
+        <script type="text/javascript">
+            window.location.href = "http://127.0.0.1:7125/chain/mychain"
+        </script>
+        <title>Adding chain link</title>
+    </head>
+    <body>
+        If you are not redirected automatically, follow the <a href='http://127.0.0.1:7125/chain/mychain'>link to example</a>
+    </body>
+</html>
+EOF
+   myfile
+end
+
+def parseParameters(data)
+   hash={}
+   inputs = data.split('&')
+   inputs.each { |input| 
+      puts input
+      tokens = input.split('=')
+      puts tokens
+      hash[tokens[0]] = CGI::unescape(tokens[1])
+   }
+   hash
+end
+
 def doPost(session, request)
-   document = Document.new
    postrequest = request.gsub(/POST\ \//, '').gsub(/\ HTTP.*/, '')
    puts "postrequest: "+request.to_s unless $debug == false
    data=readData session
    if data != nil
       puts "data: "+data
    end
+   params=parseParameters(data)
+   puts params
+   document = Document.new newLink(params)
    document
 end
 
@@ -156,6 +215,10 @@ while (session = webserver.accept)
    puts request unless $debug == false
 
    filename = ""
+   if (request == nil)
+      next
+   end
+
    if (request.match("GET\ "))
       document=doGet(session,request)
    elsif (request.match("POST\ "))
