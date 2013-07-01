@@ -2,6 +2,7 @@
  <chain name='mychain'>
    <link command='ssh rich-tpad -x cat /tmp/my1.xml' name='my_first_source'/>
    <link command='ssh rich-tpad -x cat /tmp/my2.xml' name='my_second_source'/>
+   <link command='ssh rich-tpad -x cat /tmp/my3.xml' name='my_third'/>
  </chain>
  <chain name='otherchain'>
    <link command='ssh rich-tpad -x cat /tmp/other1.xml' name='other_first_source'/>

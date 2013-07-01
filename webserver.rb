@@ -12,19 +12,35 @@ end
 
 $debug=true
 
-def showLink(link)
+def showLink(chain, link)
    h2 = Element.new('h2')
    link_html = Element.new('a')
-   link_html.add_attribute('href', '/link/'+link.attribute('name').to_s)
+   link_html.add_attribute('href', '/chain/'+link.attribute('name').to_s)
    link_html.add_text(link.attribute('name').to_s)
    p = Element.new('p')
-   p.add_text(link.attribute('command').to_s)
+   button = Element.new('button')
+   button.add_attribute('type', 'button')
+   button.add_text(link.attribute('name').to_s)
+   button.add_attribute('type', 'submit')
+   form = Element.new('FORM')
+   form.add_attribute('action', 'http://127.0.0.1:7125/chain/'+chain+'/link/'+link.attribute('name').to_s)
+   form.add_attribute('method', 'get')
+   form << button
+   p << form
    h2 << link_html
    h2 << p
    h2
 end
 
-def showChain(chain_name)
+def showLog(link)
+   textArea = Element.new('textarea')
+   puts 'executing: '+link.attribute('command').to_s
+   filldata = `#{link.attribute('command').to_s}`
+   puts (filldata)
+   textArea.add_text(filldata) 
+end
+
+def showChain(chain_name, link_name='')
    db = Database.new
    html = Element.new('html')
    html.add_attribute('lang','en')
@@ -36,7 +52,10 @@ def showChain(chain_name)
    xpath = '//config//chain[@name="'+chain_name+'"]'
    XPath.each(content, xpath) { | chain | 
       chain.each_element { | link |
-         body << showLink(link)
+         body << showLink(chain_name, link)
+         if (link_name == link.attribute('name').to_s)
+            body << showLog(link) 
+         end
       }
       body << Element.new('br')
    }
@@ -55,15 +74,16 @@ def createMenu()
    content = db.readDefinitions
    content.each_element { | config |
       config.each_element { | chain |
+         chain_name=chain.attribute('name').to_s
          h1 = Element.new('h1')
          body << h1
          a = Element.new('a')
-         a.add_attribute('href', '/chain/'+chain.attribute('name').to_s)
-         a.add_text(chain.attribute('name').to_s)
+         a.add_attribute('href', '/chain/'+chain_name)
+         a.add_text(chain_name)
          body << a 
          body << Element.new('br')
          chain.each_element { | link |
-            body << showLink(link)
+            body << showLink(chain_name, link)
          }
          body << Element.new('br')
       }
@@ -81,7 +101,6 @@ def add_labelled_input(para, name)
    entry.add_attribute('name', name.downcase)
    para.add(label) 
    para.add(entry)
-   para.add(Element.new('BR'))
 end
 
 def add_hidden_input(para, name, value)
@@ -142,15 +161,19 @@ def doGet(session, request)
    if request_url == ""
       document << createMenu()
    else
-      #filename = "newFileTemplate.html"
       request_components = request_url.split('/')
       type = request_components[0]
       name = request_components[1]
       if (type == 'chain')    
-         document << showChain(name)
+         if (request_components.length == 4)
+            document << showChain(name, request_components[3])
+         else    
+            document << showChain(name)
+         end
          document.root << newLinkForm(name)
       else
          puts 'Did not recognise request type: '+type
+         return nil
       end
    end
    puts "DOC: "+document.to_s
@@ -200,12 +223,13 @@ def doPost(session, request)
    postrequest = request.gsub(/POST\ \//, '').gsub(/\ HTTP.*/, '')
    puts "postrequest: "+request.to_s unless $debug == false
    data=readData session
+   document = nil
    if data != nil
       puts "data: "+data
+      params=parseParameters(data)
+      puts params
+      document = Document.new newLink(params)
    end
-   params=parseParameters(data)
-   puts params
-   document = Document.new newLink(params)
    document
 end
 
@@ -225,9 +249,11 @@ while (session = webserver.accept)
       document=doPost(session,request)
    end
    
-   session.print "HTTP/1.1 200/OK\r\nContent-type:text/html\r\n\r\n"
-   session.print document
-   session.close
+   if (document != nil)
+      session.print "HTTP/1.1 200/OK\r\nContent-type:text/html\r\n\r\n"
+      session.print document
+      session.close
+   end
 
    puts "done" unless $debug == false
 
