@@ -13,11 +13,6 @@ end
 $debug=true
 
 def showLink(chain, link)
-   h2 = Element.new('h2')
-   link_html = Element.new('a')
-   link_html.add_attribute('href', '/chain/'+link.attribute('name').to_s)
-   link_html.add_text(link.attribute('name').to_s)
-   p = Element.new('p')
    button = Element.new('button')
    button.add_attribute('type', 'button')
    button.add_text(link.attribute('name').to_s)
@@ -26,19 +21,36 @@ def showLink(chain, link)
    form.add_attribute('action', 'http://127.0.0.1:7125/chain/'+chain+'/link/'+link.attribute('name').to_s)
    form.add_attribute('method', 'get')
    form << button
+   p = Element.new('p')
    p << form
-   h2 << link_html
+   h2 = Element.new('h2')
+   h2.add_text(link.attribute('name').to_s)
    h2 << p
    h2
 end
 
-def showLog(link)
+def showCommand(command)
    textArea = Element.new('textarea')
-   puts 'executing: '+link.attribute('command').to_s
-   filldata = `#{link.attribute('command').to_s}`
+   puts "Command "+command
+   comm = CGI::unescapeXML(command)
+   puts comm
+   filldata = `#{CGI::unescapeHTML(command)}`
    puts (filldata)
-   textArea.add_text(filldata) 
+   textArea.add_text(filldata)
 end
+
+def showLog(link)
+   command = link.attribute('log').to_s
+   puts 'executing: '+command
+   showCommand(command)
+end
+
+def showConfig(link)
+   command = link.attribute('config').to_s
+   puts 'executing: '+config
+   showCommand(command)
+end
+
 
 def showChain(chain_name, link_name='')
    db = Database.new
@@ -53,6 +65,7 @@ def showChain(chain_name, link_name='')
    XPath.each(content, xpath) { | chain | 
       chain.each_element { | link |
          body << showLink(chain_name, link)
+         puts "Heelo " + link.to_s
          if (link_name == link.attribute('name').to_s)
             body << showLog(link) 
          end
@@ -117,7 +130,8 @@ def newLinkForm(chain)
    form.add_attribute('method', 'post')
    para = Element.new('P')
    add_labelled_input(para, 'Name')
-   add_labelled_input(para, 'Command')
+   add_labelled_input(para, 'Log')
+   add_labelled_input(para, 'Config')
    add_hidden_input(para, 'chain', chain)
 
    send_button = Element.new('INPUT')
@@ -183,9 +197,11 @@ end
 def newLink(link)
    puts ' name: '    + link['name'] + 
         ' chain: '   + link['chain'] +
-        ' command: ' + link['command'] unless $debug == false
+        ' log: '     + link['log'] +
+        ' config: '  + link['config'] unless $debug == false
    db = Database.new
-   _link = ChainLink.new(link['name'], link['command'], link['chain'])
+   _link = ChainLink.new(link['name'], link['config'], 
+                         link['log'], link['chain'])
    db.addLink(_link)
    db.saveDefinitions
    myfile = <<EOF

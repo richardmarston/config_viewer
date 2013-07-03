@@ -6,14 +6,15 @@ include REXML
 $debug = false
 
 class ChainLink
-   attr_accessor :name, :command, :chain
-   def initialize(_name, _command, _chain)
+   attr_accessor :name, :config, :log, :chain
+   def initialize(_name, _log, _config, _chain)
       @name    = _name    == nil ? "":_name
-      @command = _command == nil ? "":_command
+      @log     = _log     == nil ? "":_log
+      @config  = _config  == nil ? "":_config
       @chain   = _chain   == nil ? "":_chain
    end
    def to_s
-      'ChainLink.to_s! '+ @name + " " + @command + " " + @chain
+      'ChainLink.to_s! '+ @name + " " + @log + " " + @config + " " + @chain
    end
 end
 
@@ -49,12 +50,13 @@ class Database
    end
 
    def addLink(chainlink)
-      puts chainlink
+      puts 'addLink called: '+ chainlink.to_s
       must_be_unique=true
       config = @document.root()
       chain = addElement(config, 'chain', chainlink.chain)
       link = addElement(chain, 'link', chainlink.name, must_be_unique)
-      link.add_attribute('command', chainlink.command)
+      link.add_attribute('log', chainlink.log)
+      link.add_attribute('config', chainlink.config)
       puts @document
    end
 

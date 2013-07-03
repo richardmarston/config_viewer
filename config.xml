@@ -1,11 +1,6 @@
 <config>
  <chain name='mychain'>
-   <link command='ssh rich-tpad -x cat /tmp/my1.xml' name='my_first_source'/>
-   <link command='ssh rich-tpad -x cat /tmp/my2.xml' name='my_second_source'/>
-   <link command='ssh rich-tpad -x cat /tmp/my3.xml' name='my_third'/>
- </chain>
+ <link config='ssh rich-tpad -x cat /home/rich/two.log' log='ssh rich-tpad -x cat /home/rich/one.xml' name='firstgo'/><link config='ssh rich-tpad -x &quot;cat /home/richard/two.log&quot;' log='ssh rich-tpad -x &apos;cat /home/richard/two.xml&apos;' name='seongo'/></chain>
  <chain name='otherchain'>
-   <link command='ssh rich-tpad -x cat /tmp/other1.xml' name='other_first_source'/>
-   <link command='ssh rich-tpad -x cat /tmp/other2.xml' name='other_second_source'/>
  </chain>
 </config>
