@@ -1,6 +1,8 @@
 #!/usr/bin/ruby
 
 require 'socket'
+require 'rubygems'
+require 'htmlentities'
 $test=false
 
 if (RUBY_VERSION=="1.9.3")
@@ -12,68 +14,99 @@ end
 
 $debug=true
 
-def showLink(chain, link)
-   button = Element.new('button')
-   button.add_attribute('type', 'button')
-   button.add_text(link.attribute('name').to_s)
-   button.add_attribute('type', 'submit')
-   form = Element.new('FORM')
-   form.add_attribute('action', 'http://127.0.0.1:7125/chain/'+chain+'/link/'+link.attribute('name').to_s)
-   form.add_attribute('method', 'get')
-   form << button
-   p = Element.new('p')
-   p << form
-   h2 = Element.new('h2')
-   h2.add_text(link.attribute('name').to_s)
-   h2 << p
-   h2
+def showLink(form, chain, link)
+   # Create Buttons
+   logButton = Element.new('input')
+   logButton.add_attribute('type', 'button')
+   logButton.add_attribute('value', 'Show Log')
+   logButton.add_attribute('onclick', "return OnLogButton(\""+chain+"\",\""+link+"\");")
+   configButton = Element.new('input')
+   configButton.add_attribute('type', 'button')
+   configButton.add_attribute('value', 'Show Config')
+   configButton.add_attribute('onclick', "return OnConfigButton(\""+chain+"\",\""+link+"\");")
+
+   form << logButton
+   form << configButton
+   form << Element.new('br')
 end
 
 def showCommand(command)
    textArea = Element.new('textarea')
-   puts "Command "+command
-   comm = CGI::unescapeXML(command)
-   puts comm
-   filldata = `#{CGI::unescapeHTML(command)}`
-   puts (filldata)
+   comm = HTMLEntities.new.decode(command)
+   filldata = `#{comm}`
    textArea.add_text(filldata)
 end
 
 def showLog(link)
    command = link.attribute('log').to_s
-   puts 'executing: '+command
    showCommand(command)
 end
 
 def showConfig(link)
    command = link.attribute('config').to_s
-   puts 'executing: '+config
    showCommand(command)
 end
 
 
-def showChain(chain_name, link_name='')
-   db = Database.new
+def showChain(content, chain_name, link_log='', link_config='')
+   div = Element.new('div')
+   h2 = Element.new('h2')
+   h2.add_text(chain_name)
+   div << h2
+   xpath = '//config//chain[@name="'+chain_name+'"]'
+   XPath.each(content, xpath) { | chain | 
+      # Create Form
+      form = Element.new('form')
+      form.add_attribute('name', chain_name+'form')
+      form.add_attribute('method', 'get')
+ 
+      chain.each_element { | link |
+         h4 = Element.new('h4')
+         h4.add_text(link.attribute('name').to_s)
+         form << h4
+         showLink(form, chain_name, link.attribute('name').to_s)
+         if (link_log == link.attribute('name').to_s)
+            form << showLog(link) 
+         end
+         if (link_config == link.attribute('name').to_s)
+            form << showConfig(link) 
+         end
+      }
+      div << form
+   }
+
+   # Create Script
+   script = Element.new('script')
+   script.add_attribute('language', 'Javascript')
+   script_text = String.new("""
+   function OnLogButton(chain, link)
+   {
+      document."+chain_name+"form.action = \"http://127.0.0.1:7125/chain/\"+chain+\"/log/\"+link;
+      document."+chain_name+"form.submit();
+      return true;
+   }
+   function OnConfigButton(chain, link)
+   {
+      document."+chain_name+"form.action = \"http://127.0.0.1:7125/chain/\"+chain+\"/config/\"+link;
+      document."+chain_name+"form.submit();
+      return true;
+   }
+   """)
+   script.add_text(script_text)
+   div << script
+   div
+end
+
+def chainHome(chain_name, link_log='', link_config)
+   puts "LOG: "+link_log+" CONFIG: "+link_config
    html = Element.new('html')
    html.add_attribute('lang','en')
    body = Element.new('body')
    title = body << Element.new('title')
    title.add_text('Chain: '+chain_name)
-
+   db = Database.new
    content = db.readDefinitions
-   xpath = '//config//chain[@name="'+chain_name+'"]'
-   XPath.each(content, xpath) { | chain | 
-      chain.each_element { | link |
-         body << showLink(chain_name, link)
-         puts "Heelo " + link.to_s
-         if (link_name == link.attribute('name').to_s)
-            body << showLog(link) 
-         end
-      }
-      body << Element.new('br')
-   }
-   html << body
-   html
+   body << showChain(content, chain_name, link_log, link_config)
 end
 
 def createMenu()
@@ -88,19 +121,10 @@ def createMenu()
    content.each_element { | config |
       config.each_element { | chain |
          chain_name=chain.attribute('name').to_s
-         h1 = Element.new('h1')
-         body << h1
-         a = Element.new('a')
-         a.add_attribute('href', '/chain/'+chain_name)
-         a.add_text(chain_name)
-         body << a 
-         body << Element.new('br')
-         chain.each_element { | link |
-            body << showLink(chain_name, link)
-         }
-         body << Element.new('br')
+         body << showChain(content, chain_name) 
       }
    }
+
    html << body
    html
 end
@@ -117,7 +141,7 @@ def add_labelled_input(para, name)
 end
 
 def add_hidden_input(para, name, value)
-   entry = Element.new('INPUT')
+   entry = Element.new('input')
    entry.add_attribute('type', 'hidden')
    entry.add_attribute('name', name)
    entry.add_attribute('value', value)
@@ -125,7 +149,7 @@ def add_hidden_input(para, name, value)
 end
 
 def newLinkForm(chain)
-   form = Element.new('FORM')
+   form = Element.new('form')
    form.add_attribute('action', 'http://127.0.0.1:7125/newLink.html')
    form.add_attribute('method', 'post')
    para = Element.new('P')
@@ -180,9 +204,13 @@ def doGet(session, request)
       name = request_components[1]
       if (type == 'chain')    
          if (request_components.length == 4)
-            document << showChain(name, request_components[3])
+            if (request_components[2] == 'log')
+               document << chainHome(name, request_components[3], '')
+            elsif (request_components[2] == 'config')
+               document << chainHome(name, '', request_components[3])
+            end
          else    
-            document << showChain(name)
+            document << chainHome(name)
          end
          document.root << newLinkForm(name)
       else
@@ -190,7 +218,7 @@ def doGet(session, request)
          return nil
       end
    end
-   puts "DOC: "+document.to_s
+   #puts "\n***\n***\nDOC: "+document.to_s
    document
 end
 
@@ -200,8 +228,8 @@ def newLink(link)
         ' log: '     + link['log'] +
         ' config: '  + link['config'] unless $debug == false
    db = Database.new
-   _link = ChainLink.new(link['name'], link['config'], 
-                         link['log'], link['chain'])
+   _link = ChainLink.new(link['name'], link['log'], 
+                         link['config'], link['chain'])
    db.addLink(_link)
    db.saveDefinitions
    myfile = <<EOF
@@ -267,7 +295,9 @@ while (session = webserver.accept)
    
    if (document != nil)
       session.print "HTTP/1.1 200/OK\r\nContent-type:text/html\r\n\r\n"
-      session.print document
+      docstring = HTMLEntities.new.decode(document.to_s)
+      #puts "Sending: "+docstring
+      session.print docstring 
       session.close
    end
 
@@ -282,4 +312,7 @@ while (session = webserver.accept)
    #      session.print "File not found"
    #   end
    #end
+
+   #set the attribute value delimiter
+   #document.context[:attribute_quote] = :quote
 end

@@ -1,7 +1,27 @@
-<html>
-  <body>
-    <ruby>
-    puts 'hello'
-    </ruby>
-  <body>
-<html>
+<html lang='en'><body><title>Chains</title><h1/><a href='/chain/mychain'>mychain</a><br/><h2>firstgo<p>
+
+<form name="commform" method='post'>
+<input onclick='return OnLogButton("mychain");' type='button' value='log'>Show Log</input>
+<input onclick='return OnConfigButton();' type='button' value='config'>Show Config</input>
+</form>
+
+<script language="Javascript">
+function OnLogButton(chain)
+{
+   document.commform.action = "chain/"+chain+"/log/"
+   document.commform.submit();
+   return true;
+}
+function OnLogButton()
+{
+   document.commform.action = "chain/mychain/config/"
+   document.commform.submit();
+   return true;
+}
+</script>
+
+
+</body>
+
+
+</html> 

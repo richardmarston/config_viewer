@@ -1,6 +1,9 @@
 <config>
  <chain name='mychain'>
- <link config='ssh rich-tpad -x cat /home/rich/two.log' log='ssh rich-tpad -x cat /home/rich/one.xml' name='firstgo'/><link config='ssh rich-tpad -x &quot;cat /home/richard/two.log&quot;' log='ssh rich-tpad -x &apos;cat /home/richard/two.xml&apos;' name='seongo'/></chain>
+ <link config='ssh rich-tpad -x cat /home/richard/fake_xml/one.xml' log='ssh rich-tpad -x cat /home/richard/fake_xml/one.log' name='firstgo'/>
+<link config='ssh rich-tpad -x &quot;cat /home/richard/fake_xml/two.xml&quot;' log='ssh rich-tpad -x &apos;cat /home/richard/fake_xml/two.log&apos;' name='seongo'/>
+</chain>
  <chain name='otherchain'>
+<link config='ssh rich-tpad -x &quot;cat /home/richard/fake_xml/two.xml&quot;' log='ssh rich-tpad -x &apos;cat /home/richard/fake_xml/two.config&apos;' name='seongo'/>
  </chain>
 </config>
